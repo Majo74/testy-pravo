@@ -1,1 +1,273 @@
-TEST
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testy – Právo</title>
+<style>
+:root{--bg:#1A1A1A;--surface:#2A2A2A;--border:#404040;--text:#E8E8E8;--muted:#A0A0A0;--primary:#4DB6AC;--ok:#66BB6A;--ok-bg:#1B3A1B;--bad:#EF5350;--bad-bg:#3A1B1B;--miss:#FFA726;--miss-bg:#3A2E1B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:26px;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:12px 0}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:12px 14px}
+button:hover{border-color:var(--primary)}
+.btn-p{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mode{text-align:left}
+.mode b{display:block;font-weight:600}
+.mode span{font-size:13px;color:var(--muted)}
+.label{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.timer{font-weight:600;font-variant-numeric:tabular-nums}
+.timer.low{color:var(--bad)}
+.bar{height:6px;background:#3A3A3A;border-radius:3px;overflow:hidden;margin-bottom:16px}
+.bar i{display:block;height:100%;background:var(--primary);transition:width .3s}
+.q{font-size:18px;font-weight:600;margin:0 0 12px}
+.opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px}
+.opt .box{flex:0 0 22px;height:22px;border:2px solid var(--border);border-radius:5px;display:grid;place-items:center;font-size:12px;font-weight:600}
+.opt.sel{border-color:var(--primary);background:#2A3A3A}
+.opt.sel .box{background:var(--primary);border-color:var(--primary);color:#fff}
+.opt.ok{border-color:var(--ok);background:var(--ok-bg)}
+.opt.bad{border-color:var(--bad);background:var(--bad-bg)}
+.opt.miss{border-color:var(--miss);background:var(--miss-bg);border-style:dashed}
+.fb{border-radius:10px;padding:12px;margin:8px 0 14px}
+.fb.ok{background:var(--ok-bg)} .fb.bad{background:var(--bad-bg)}
+.score{font-size:48px;font-weight:600;margin:6px 0}
+.pass{color:var(--ok)} .fail{color:var(--bad)}
+.rev{border-top:1px solid var(--border);padding:10px 0}
+.hidden{display:none}
+.row{display:flex;gap:10px;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Testy – Právo</h1>
+  <p class="sub">Vyber predmet · 10 minút · úspech = aspoň 6 z 10</p>
+
+  <section id="subject" class="card">
+    <div class="label">Vyber predmet</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0">
+      <button id="subjSpravne" class="btn-p">Správne právo</button>
+      <button id="subjObcianske">Občianske právo</button>
+    </div>
+  </section>
+
+  <section id="start" class="card hidden">
+    <div class="label">Režim</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px">
+      <button id="mExam">Ako na skúške – výsledok až na konci</button>
+      <button id="mLearn" class="btn-p">Učenie – správna odpoveď hneď</button>
+    </div>
+    <div id="modes"></div>
+  </section>
+
+  <section id="quiz" class="card hidden">
+    <div class="top">
+      <span class="label" id="pos">Otázka 1</span>
+      <span class="timer" id="timer">10:00</span>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <p class="q" id="qtext"></p>
+    <div id="opts"></div>
+    <div id="fb"></div>
+    <div class="row">
+      <button id="quit">Ukončiť</button>
+      <button id="next" class="btn-p" disabled>Potvrdiť</button>
+    </div>
+  </section>
+
+  <section id="result" class="card hidden">
+    <div class="label" id="rtitle"></div>
+    <div class="score" id="rscore"></div>
+    <p id="rverdict"></p>
+    <div class="row" style="margin:14px 0">
+      <button id="again" class="btn-p">Nový test</button>
+      <button id="retry">Zopakovať chybné</button>
+    </div>
+    <div id="review"></div>
+  </section>
+</div>
+
+<script>
+const SCHOOL_QUESTIONS = [{"q": "Test otázka", "o": ["A", "B", "C"], "c": [0], "w": "A"}];
+const OBC_QUESTIONS = [{"q": "Test otázka", "o": ["A", "B", "C"], "c": [0], "w": "A"}];
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function prepare(qs){
+  return qs.map(q=>{
+    const paired = q.o.map((opt,i)=>({opt, isC:q.c.includes(i)}));
+    shuffle(paired);
+    return { q:q.q, o:paired.map(p=>p.opt), c:paired.map((p,i)=>p.isC?i:null).filter(x=>x!==null), w:q.w };
+  });
+}
+
+let mode='learn', questions=[], current=0, answers=[], timerId=null, timeLeft=600, currentSubject='spravne', testTitle='';
+function $(id){ return document.getElementById(id); }
+function setMode(m){ mode=m; $('mExam').classList.toggle('btn-p', m==='exam'); $('mLearn').classList.toggle('btn-p', m==='learn'); }
+$('mExam').onclick = () => setMode('exam');
+$('mLearn').onclick = () => setMode('learn');
+
+function buildModes(){
+  const c = $('modes'); c.innerHTML = '';
+  const isObc = currentSubject === 'obcianske';
+  const data = isObc ? OBC_QUESTIONS : SCHOOL_QUESTIONS;
+  const label = isObc ? 'Občianske právo – Testy' : 'Školské testy';
+  const div = document.createElement('div');
+  div.innerHTML = `<div class="label">${label} (${data.length} otázok)</div><div class="grid"></div>`;
+  const g = div.querySelector('.grid');
+  const tests = [];
+  const sh = shuffle([...data]);
+  for (let i = 0; i < sh.length; i += 10) tests.push(prepare(sh.slice(i, i+10)));
+  tests.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'mode';
+    b.innerHTML = `<b>Test ${i+1}</b><span>${t.length} otázok · 10 min</span>`;
+    b.onclick = () => begin(t, `${label} ${i+1}`);
+    g.appendChild(b);
+  });
+  const rb = document.createElement('button');
+  rb.className = 'mode';
+  rb.innerHTML = `<b>Náhodný test</b><span>10 otázok</span>`;
+  rb.onclick = () => begin(prepare(shuffle([...data]).slice(0,10)), 'Náhodný test');
+  g.appendChild(rb);
+  c.appendChild(div);
+}
+
+function begin(qs, title){
+  questions = qs.map(q => ({ ...q, selected: new Set() }));
+  current = 0; answers = []; timeLeft = 600; testTitle = title;
+  $('start').classList.add('hidden');
+  $('quiz').classList.remove('hidden');
+  $('result').classList.add('hidden');
+  $('rtitle').textContent = title;
+  show();
+  if (timerId) clearInterval(timerId);
+  timerId = setInterval(tick, 1000);
+}
+
+function tick(){
+  timeLeft--;
+  const m = Math.floor(timeLeft/60), s = timeLeft % 60;
+  $('timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  $('timer').classList.toggle('low', timeLeft < 60);
+  if (timeLeft <= 0) finish();
+}
+
+function show(){
+  const q = questions[current];
+  $('pos').textContent = `Otázka ${current+1} z ${questions.length}`;
+  $('prog').style.width = `${(current / questions.length) * 100}%`;
+  $('qtext').textContent = q.q;
+  $('opts').innerHTML = ''; $('fb').innerHTML = ''; $('fb').className = '';
+  $('next').disabled = true; $('next').textContent = 'Potvrdiť';
+  q.o.forEach((opt, i) => {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.innerHTML = `<span class="box">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+    b.onclick = () => toggle(i, b);
+    $('opts').appendChild(b);
+  });
+}
+
+function toggle(i, btn){
+  const q = questions[current];
+  if (q.answered && mode === 'learn') return;
+  if (q.selected.has(i)) q.selected.delete(i); else q.selected.add(i);
+  btn.classList.toggle('sel');
+  $('next').disabled = q.selected.size === 0;
+}
+
+function isRight(q){
+  const sel = [...q.selected].sort(), corr = [...q.c].sort();
+  return sel.length === corr.length && sel.every((v,i) => v === corr[i]);
+}
+
+function paint(q){
+  const opts = $('opts').children;
+  q.o.forEach((_, i) => {
+    const b = opts[i];
+    b.classList.remove('sel');
+    const isC = q.c.includes(i), isS = q.selected.has(i);
+    if (isC && isS) b.classList.add('ok');
+    else if (isC && !isS) b.classList.add('miss');
+    else if (!isC && isS) b.classList.add('bad');
+  });
+  const ok = isRight(q);
+  $('fb').className = 'fb ' + (ok ? 'ok' : 'bad');
+  $('fb').textContent = (ok ? 'Správne. ' : 'Nesprávne. ') + (q.w || '');
+  $('next').disabled = false; $('next').textContent = 'Ďalšia';
+}
+
+function next(){
+  const q = questions[current];
+  if (!q.answered){
+    q.answered = true; q.correct = isRight(q); answers.push(q);
+    if (mode === 'learn') { paint(q); return; }
+  }
+  if (current < questions.length - 1) { current++; show(); } else finish();
+}
+$('next').onclick = next;
+
+function finish(){
+  if (timerId) clearInterval(timerId);
+  $('quiz').classList.add('hidden'); $('result').classList.remove('hidden');
+  const correct = answers.filter(a => a.correct).length, total = questions.length;
+  const pass = correct >= Math.ceil(total * 0.6);
+  $('rscore').textContent = `${correct} / ${total}`;
+  $('rverdict').innerHTML = pass ? '<span class="pass">Úspešne</span>' : '<span class="fail">Neúspešne</span>';
+  const rev = $('review');
+  rev.innerHTML = '<div class="label" style="margin-top:12px">Prehľad</div>';
+  answers.forEach((a, i) => {
+    const d = document.createElement('div'); d.className = 'rev';
+    d.innerHTML = `<p><b>${i+1}. ${a.q}</b></p><p style="color:var(--muted);font-size:14px">${a.correct ? '✓' : '✗'} ${a.w || ''}</p>`;
+    rev.appendChild(d);
+  });
+}
+
+$('quit').onclick = () => {
+  if (timerId) clearInterval(timerId);
+  $('quiz').classList.add('hidden');
+  $('start').classList.remove('hidden');
+  buildModes();
+};
+
+$('again').onclick = () => {
+  $('result').classList.add('hidden');
+  $('start').classList.remove('hidden');
+  buildModes();
+};
+
+$('retry').onclick = () => {
+  const wrong = answers.filter(a => !a.correct).map(a => ({ q:a.q, o:a.o, c:a.c, w:a.w }));
+  if (!wrong.length) return alert('Žiadne chybné.');
+  begin(prepare(wrong), 'Opakovanie chybných');
+};
+
+document.addEventListener('keydown', e => {
+  if ($('quiz').classList.contains('hidden')) return;
+  const k = e.key.toUpperCase();
+  if (k >= 'A' && k <= 'F') {
+    const i = k.charCodeAt(0) - 65;
+    const b = $('opts').children[i];
+    if (b) b.click();
+  } else if (e.key === 'Enter' && !$('next').disabled) next();
+});
+
+$('subjSpravne').onclick = () => {
+  currentSubject = 'spravne';
+  $('subject').classList.add('hidden');
+  $('start').classList.remove('hidden');
+  buildModes();
+};
+$('subjObcianske').onclick = () => {
+  currentSubject = 'obcianske';
+  $('subject').classList.add('hidden');
+  $('start').classList.remove('hidden');
+  buildModes();
+};
+</script>
+</body>
+</html>
