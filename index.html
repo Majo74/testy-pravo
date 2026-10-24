@@ -178,6 +178,29 @@ function buildModes(){
   g.appendChild(rb);
   c.appendChild(div);
 
+  // AI tests for Občianske právo
+  if (isObc && typeof AI_OBC_QUESTIONS !== 'undefined' && AI_OBC_QUESTIONS.length) {
+    const aiDiv = document.createElement('div');
+    aiDiv.innerHTML = `<div class="label" style="margin-top:18px">AI Testy zo skrípt (${AI_OBC_QUESTIONS.length} otázok)</div><div class="grid"></div>`;
+    const ag = aiDiv.querySelector('.grid');
+    const aiTests = [];
+    const ash = shuffle([...AI_OBC_QUESTIONS]);
+    for (let i = 0; i < ash.length; i += 10) aiTests.push(prepare(ash.slice(i, i+10)));
+    aiTests.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'mode';
+      b.innerHTML = `<b>AI Test ${i+1}</b><span>${t.length} otázok · 10 min</span>`;
+      b.onclick = () => begin(t, `AI Test ${i+1}`);
+      ag.appendChild(b);
+    });
+    const arb = document.createElement('button');
+    arb.className = 'mode';
+    arb.innerHTML = `<b>Náhodný AI test</b><span>10 otázok</span>`;
+    arb.onclick = () => begin(prepare(shuffle([...AI_OBC_QUESTIONS]).slice(0,10)), 'Náhodný AI test');
+    ag.appendChild(arb);
+    c.appendChild(aiDiv);
+  }
+
   // AI tests for Správne právo
   if (!isObc && typeof AI_QUESTIONS !== 'undefined' && AI_QUESTIONS.length) {
     const aiDiv = document.createElement('div');
